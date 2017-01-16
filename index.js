@@ -91,7 +91,6 @@ const app = http.createServer(handle(async (req, res) => {
 	}
 
 	const dir = await npmInstall(args);
-
 	const moduleNames = args.map(({name}) => name);
 	const bundle = await createBundle(moduleNames, dir, query);
 
