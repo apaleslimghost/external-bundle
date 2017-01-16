@@ -9,6 +9,9 @@ const packageArg = require('npm-package-arg');
 const uglifyify = require('uglifyify');
 const Uglify = require('uglify-js');
 const envify = require('envify/custom');
+const packageJson = require('package-json');
+
+const latestSatisfying = (name, range) => packageJson(name, range).then(({version}) => version);
 
 const npmInstall = async modules => {
 	const dir = (await fs.mkdtemp('modules/')) + '/node_modules';
@@ -60,8 +63,24 @@ const app = http.createServer(handle(async (req, res) => {
 
 	const modules = decodeURIComponent(pathname.slice(1)).split(';');
 	const dir = await npmInstall(modules);
-	const moduleNames = modules.map(module => packageArg(module).name);
+
+	const args = modules.map(module => packageArg(module));
+	const argsWithoutVersion = args.filter(({type}) => type !== 'version');
+
+	if(argsWithoutVersion.length) {
+		const withVersions = await Promise.all(argsWithoutVersion.map(async arg => {
+			return arg.name + '@' + await latestSatisfying(arg.name, arg.spec);
+		}));
+
+		const redirectPath = '/' + withVersions.join(';');
+		res.setHeader('location', redirectPath);
+		res.statusCode = 308;
+		return res.end();
+	}
+
+	const moduleNames = args.map(({name}) => name);
 	const bundle = await createBundle(moduleNames, dir, query);
+
 	res.setHeader('content-type', 'application/javascript');
 	res.end(bundle);
 }));
