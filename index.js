@@ -22,15 +22,15 @@ const npmInstall = async modules => {
 	return dir;
 };
 
-const createBundle = (modules, basedir, {minify} = {}) => {
+const createBundle = (modules, basedir, {development} = {}) => {
 	const bundle = browserify({basedir});
 
-	if(minify !== 'no') {
+	if(development !== 'yes') {
 		bundle.plugin(uglifyify, {global: true});
 	}
 
 	bundle.transform(envify({
-		NODE_ENV: 'production'
+		NODE_ENV: development === 'yes' ? 'development' : 'production'
 	}));
 
 	return new Promise((resolve, reject) => {
@@ -44,7 +44,7 @@ const createBundle = (modules, basedir, {minify} = {}) => {
 			}
 		});
 	}).then(src => {
-		if(minify !== 'no') {
+		if(development !== 'yes') {
 			return Uglify.minify(src, {
 				fromString: true,
 			}).code;
