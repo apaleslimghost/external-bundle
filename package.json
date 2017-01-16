@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "nodemon -x 'async-node' index.js",
-    "heroku-build": "async-to-gen index.js -o server.js"
+    "heroku-postbuild": "async-to-gen index.js -o server.js"
   },
   "repository": {
     "type": "git",
