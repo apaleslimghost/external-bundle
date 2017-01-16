@@ -81,6 +81,7 @@ const app = http.createServer(handle(async (req, res) => {
 	const moduleNames = args.map(({name}) => name);
 	const bundle = await createBundle(moduleNames, dir, query);
 
+	res.setHeader('cache-control', 'public, max-age=10000000000, immutable');
 	res.setHeader('content-type', 'application/javascript');
 	res.end(bundle);
 }));
