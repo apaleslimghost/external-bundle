@@ -6,6 +6,9 @@ const fs = require('mz/fs');
 const path = require('path');
 const handle = require('@quarterto/handle-promise');
 const packageArg = require('npm-package-arg');
+const uglifyify = require('uglifyify');
+const Uglify = require('uglify-js');
+const envify = require('envify/custom');
 
 const npmInstall = async modules => {
 	const dir = (await fs.mkdtemp('modules/')) + '/node_modules';
@@ -19,10 +22,20 @@ const npmInstall = async modules => {
 	return dir;
 };
 
-const createBundle = (modules, basedir) => {
+const createBundle = (modules, basedir, {minify} = {}) => {
 	const bundle = browserify({basedir});
-	modules.forEach(module => bundle.require(module));
+
+	if(minify !== 'no') {
+		bundle.plugin(uglifyify, {global: true});
+	}
+
+	bundle.transform(envify({
+		NODE_ENV: 'production'
+	}));
+
 	return new Promise((resolve, reject) => {
+		bundle.on('error', reject);
+		modules.forEach(module => bundle.require(module));
 		bundle.bundle((err, content) => {
 			if(err) {
 				reject(err);
@@ -30,17 +43,25 @@ const createBundle = (modules, basedir) => {
 				resolve(content.toString());
 			}
 		});
+	}).then(src => {
+		if(minify !== 'no') {
+			return Uglify.minify(src, {
+				fromString: true,
+			}).code;
+		}
+
+		return src;
 	});
-}
+};
 
 const app = http.createServer(handle(async (req, res) => {
-	const {pathname} = url.parse(req.url, true);
+	const {pathname, query} = url.parse(req.url, true);
 	if(pathname === '/favicon.ico') return res.end();
 
 	const modules = decodeURIComponent(pathname.slice(1)).split(';');
 	const dir = await npmInstall(modules);
 	const moduleNames = modules.map(module => packageArg(module).name);
-	const bundle = await createBundle(moduleNames, dir);
+	const bundle = await createBundle(moduleNames, dir, query);
 	res.setHeader('content-type', 'application/javascript');
 	res.end(bundle);
 }));
